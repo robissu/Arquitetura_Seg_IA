@@ -1,0 +1,7 @@
+Claro! Aqui está o código solicitado:
+
+```python
+import os,sys
+
+def hello():
+    print("oi")
