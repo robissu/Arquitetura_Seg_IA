@@ -35,3 +35,23 @@ Módulo de análise
 Módulo de classificação
         ↓
 Módulo de recomendação
+
+Arquitetura_Seg_IA/
+│
+├── data/
+│   ├── input/          # Entradas brutas de código gerado por IA
+│   └── output/         # Saídas normalizadas e resultados intermediários
+│
+├── src/
+│   ├── collect/
+│   │   └── normalize.py   # Módulo de coleta e normalização
+│   │
+│   ├── utils/
+│   │   └── io_utils.py    # Funções auxiliares de leitura/escrita
+│   │
+│   └── main.py            # Ponto de entrada para execução do protótipo
+│
+├── .venv/                 # Ambiente virtual Python
+├── .gitignore
+├── requirements.txt
+└── README.md
