@@ -52,7 +52,7 @@ Módulo de recomendação
 
 ## Estado atual do desenvolvimento
 
-### Concluído
+### Concluído(+ou-)
 - **Módulo de coleta e normalização**
 
 ### Em desenvolvimento
