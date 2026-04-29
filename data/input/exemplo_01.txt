@@ -3,5 +3,5 @@ Claro! Aqui está o código solicitado:
 ```python
 import os,sys
 
-def hello():
+def hello()
     print("oi")
