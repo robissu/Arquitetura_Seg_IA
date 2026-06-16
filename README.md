@@ -4,61 +4,74 @@ Protótipo desenvolvido no contexto do **TCC de Ciência da Computação de Robs
 
 ## Descrição
 
-Este projeto tem como objetivo estruturar um protótipo de análise de segurança para **código gerado por inteligência artificial**, com foco na identificação, classificação e interpretação de vulnerabilidades de segurança presentes no código analisado.
-
-A proposta busca apoiar o desenvolvimento seguro assistido por IA, permitindo:
+Este projeto implementa uma arquitetura de análise de segurança para **código gerado por inteligência artificial**, com foco na identificação, classificação e interpretação de vulnerabilidades. A proposta apoia o desenvolvimento seguro assistido por IA permitindo:
 
 - analisar código gerado por modelos de linguagem;
-- identificar vulnerabilidades de segurança;
-- classificar essas vulnerabilidades com base em taxonomias e bases de conhecimento como **CWE**, **OWASP** e outras referências relevantes;
-- sugerir recomendações de correção e mitigação;
-- apoiar programadores na prevenção de falhas de segurança recorrentes.
-
----
-
-## Objetivo da arquitetura
-
-A arquitetura proposta foi concebida para processar código gerado por IA em um fluxo contínuo de análise, estruturado em módulos que permitem:
-
-1. **coletar e normalizar** o código recebido;
-2. **analisar** o código em busca de vulnerabilidades;
-3. **classificar** os achados segundo categorias conhecidas de segurança;
-4. **recomendar** ações de mitigação e correção.
+- identificar vulnerabilidades por meio de SAST e heurísticas complementares;
+- classificar os achados com base em **CWE**, **OWASP** e no Guia GIA produzido no TCC;
+- recomendar ações de mitigação e correção estruturadas.
 
 ---
 
 ## Arquitetura proposta
 
-A arquitetura completa do protótipo é composta pelos seguintes módulos:
-
-1. **Módulo de coleta e normalização**
-2. **Módulo de análise**
-3. **Módulo de classificação**
-4. **Módulo de recomendação**
-
-### Fluxo proposto
+O protótipo é composto por quatro módulos executados em sequência:
 
 ```text
-Módulo de coleta e normalização
-        ↓
-Módulo de análise
-        ↓
-Módulo de classificação
-        ↓
-Módulo de recomendação
+Módulo 1 — Coleta e normalização
+           ↓
+Módulo 2 — Análise de segurança
+           ↓
+Módulo 3 — Classificação
+           ↓
+Módulo 4 — Recomendação
 ```
 
 ---
 
 ## Estado atual do desenvolvimento
 
-### Concluído(+ou-)
-- **Módulo de coleta e normalização**
+### Concluído
+
+**Módulo 1 — Coleta e normalização** (`src/collect/normalize.py`)
+
+- remoção de artefatos textuais de saídas de LLM (texto introdutório, conclusivo, cercas de markdown);
+- normalização de quebras de linha e codificação UTF-8;
+- organização de imports com isort e formatação determinística com Black;
+- validação sintática com `ast.parse` — código inválido é bloqueado e marcado;
+- extração de metadados estruturais: imports, funções, classes, linhas duplicadas e linhas comentadas;
+- detecção de fragmentos incompletos (`...`, comentários de omissão).
+
+**Módulo 2 — Análise de segurança** (`src/analyze/`)
+
+Camada 1 — SAST com Bandit (`sast.py`):
+
+- execução do Bandit via subprocess com saída em JSON;
+- captura de severidade, confiança, regra, linha e trecho de contexto de cada achado;
+- saída padronizada no formato intermediário unificado.
+
+Camada 2 — Heurísticas complementares (`heuristics.py`):
+
+| ID | O que detecta |
+|---|---|
+| H001 | `except Exception: pass` ou `except:` sem corpo |
+| H002 | `except Exception as e: pass` silencioso |
+| H003 | TODO/FIXME em funções com nome sensível de segurança |
+| H004 | Função de verificação de acesso que retorna sempre `True` ou `1` |
+| H005 | Entrada externa usada diretamente como argumento sem validação |
+| H006 | Rota Flask/Django com método sensível sem decorator de autenticação |
+| H007 | Rota com parâmetro ID sem checagem de propriedade do recurso (IDOR) |
+| H008 | Import de pacote ausente em `requirements.txt` |
+
+**Base de conhecimento** (`data/knowledge_base.json`)
+
+- arquivo JSON com as sete categorias do Guia GIA (GIA-001 a GIA-007);
+- cada entrada contém: CWE, OWASP, impacto, exemplos de ocorrência e as três etapas de mitigação (o que verificar, como corrigir, como validar).
 
 ### Em desenvolvimento
-- Módulo de análise
-- Módulo de classificação
-- Módulo de recomendação
+
+- **Módulo 3 — Classificação**: associa cada achado ao GIA, CWE e OWASP correspondente.
+- **Módulo 4 — Recomendação**: consulta a base de conhecimento e gera o relatório final em JSON.
 
 ---
 
@@ -68,20 +81,21 @@ Módulo de recomendação
 Arquitetura_Seg_IA/
 │
 ├── data/
-│   ├── input/              # Entradas brutas de código gerado por IA
-│   └── output/             # Saídas normalizadas e resultados intermediários
+│   ├── input/                    # Entradas brutas de código gerado por IA
+│   ├── output/                   # Relatórios JSON finais (não versionado)
+│   └── knowledge_base.json       # Base de conhecimento GIA-001..007
 │
 ├── src/
 │   ├── collect/
-│   │   └── normalize.py    # Módulo de coleta e normalização
-│   │
+│   │   └── normalize.py          # Módulo 1 — coleta e normalização
+│   ├── analyze/
+│   │   ├── sast.py               # Módulo 2 — wrapper Bandit
+│   │   └── heuristics.py         # Módulo 2 — heurísticas H001-H008
 │   ├── utils/
-│   │   └── io_utils.py     # Funções auxiliares de leitura e escrita
-│   │
-│   └── main.py             # Ponto de entrada do protótipo
+│   │   └── io_utils.py           # Funções auxiliares de leitura e escrita
+│   └── main.py                   # Ponto de entrada do protótipo
 │
-├── .venv/                  # Ambiente virtual Python (não versionado)
-├── .gitignore
+├── .venv/                        # Ambiente virtual Python (não versionado)
 ├── requirements.txt
 └── README.md
 ```
@@ -90,37 +104,19 @@ Arquitetura_Seg_IA/
 
 ## Tecnologias utilizadas
 
-O protótipo utiliza, até o momento:
-
 - **Python 3.14**
 - **isort** — organização de imports
-- **Black** — formatação determinística do código
-- **ast.parse** — validação sintática preliminar e apoio à extração estrutural
+- **Black** — formatação determinística
+- **ast** (stdlib) — travessia de AST para heurísticas estruturais
 - **Bandit** — análise estática de segurança (SAST)
-
----
-
-## Funcionalidade implementada até o momento
-
-O módulo de coleta e normalização já realiza:
-
-- remoção de artefatos textuais provenientes da saída de modelos de linguagem;
-- tratamento de cercas de markdown e trechos não pertencentes ao código;
-- normalização de quebras de linha;
-- organização de imports;
-- formatação determinística do código;
-- validação sintática preliminar;
-- extração de metadados estruturais, como imports, funções e classes.
 
 ---
 
 ## Requisitos
 
-Para executar o projeto, é necessário ter instalado:
-
-- **Python 3.14 ou superior**
-- **Git** (opcional, caso o projeto seja clonado do GitHub)
-- terminal PowerShell, Command Prompt ou terminal integrado do VS Code
+- Python 3.14 ou superior
+- Git (opcional, para clonar o repositório)
+- PowerShell, Command Prompt ou terminal integrado do VS Code
 
 ---
 
@@ -133,19 +129,12 @@ git clone https://github.com/robissu/Arquitetura_Seg_IA.git
 cd Arquitetura_Seg_IA
 ```
 
-### 2. Criar o ambiente virtual
+### 2. Criar e ativar o ambiente virtual
 
 No PowerShell:
 
 ```powershell
 python -m venv .venv
-```
-
-### 3. Ativar o ambiente virtual
-
-No PowerShell:
-
-```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 & .\.venv\Scripts\Activate.ps1
 ```
@@ -153,10 +142,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 No Command Prompt:
 
 ```cmd
+python -m venv .venv
 .venv\Scripts\activate.bat
 ```
 
-### 4. Instalar as dependências
+### 3. Instalar as dependências
 
 ```bash
 python -m pip install --upgrade pip
@@ -167,23 +157,11 @@ pip install -r requirements.txt
 
 ## Como executar
 
-### 1. Adicione uma entrada de teste
+### 1. Adicionar uma entrada de teste
 
-Crie ou edite um arquivo dentro de:
+Crie ou edite um arquivo em `data/input/`, por exemplo `data/input/exemplo_01.txt`. O arquivo pode conter uma saída bruta de código gerado por IA, incluindo texto explicativo e cercas de markdown.
 
-```text
-data/input/
-```
-
-Exemplo:
-
-```text
-data/input/exemplo_01.txt
-```
-
-Esse arquivo pode conter uma saída bruta de código gerado por IA, incluindo markdown e texto explicativo.
-
-### 2. Execute o protótipo
+### 2. Executar o protótipo
 
 Na raiz do projeto, com o ambiente virtual ativado:
 
@@ -191,66 +169,25 @@ Na raiz do projeto, com o ambiente virtual ativado:
 python src/main.py
 ```
 
-### 3. Resultado esperado
-
-Ao executar, o protótipo:
-
-- lê o arquivo de entrada;
-- normaliza o conteúdo;
-- valida a sintaxe;
-- extrai metadados básicos;
-- imprime os resultados no terminal;
-- salva o código normalizado em:
-
-```text
-data/output/
-```
-
----
-
-## Exemplo de entrada
-
-Arquivo `data/input/exemplo_01.txt`:
-
-```text
-Claro! Aqui está o código solicitado:
-
-<bloco de código Python gerado por IA>
-```
-
-## Exemplo de saída esperada
-
-```python
-import os
-import sys
-
-
-def hello():
-    print("oi")
-```
-
 ---
 
 ## Próximos passos
 
-Os próximos passos previstos no desenvolvimento do protótipo são:
-
-- integrar o módulo de análise estática com foco em segurança;
-- capturar o output do SAST em formato estruturado;
-- mapear vulnerabilidades para categorias como **CWE** e **OWASP**;
-- implementar o módulo de classificação;
-- implementar o módulo de recomendação com base em um guia técnico de mitigação;
-- gerar relatórios com indicação de localização da vulnerabilidade, classificação, impacto e sugestão de correção.
+- implementar o Módulo 3 — Classificação (associar achados a GIA, CWE e OWASP);
+- implementar o Módulo 4 — Recomendação (gerar relatório final em JSON com orientações de mitigação);
+- integrar os quatro módulos no fluxo completo em `main.py`;
+- criar suíte de testes automatizados com pytest.
 
 ---
 
 ## Observações
 
-Este repositório representa um **protótipo em desenvolvimento**, voltado à validação da arquitetura proposta no TCC. A implementação atual cobre apenas a etapa inicial de coleta e normalização, sendo expandida gradualmente para contemplar os módulos seguintes.
+Este repositório representa um **protótipo em desenvolvimento** voltado à validação da arquitetura proposta no TCC. O escopo atual cobre os Módulos 1 e 2; os Módulos 3 e 4 estão em implementação.
 
 ---
 
 ## Autor
 
-**Robson Daniel Marchesan**  
-TCC de Ciência da Computação
+**Robson Daniel Marchesan**
+TCC de Ciência da Computação — UFSM
+Orientador: Prof. Raul Ceretta Nunes — DCOM

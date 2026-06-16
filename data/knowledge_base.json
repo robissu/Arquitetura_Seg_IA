@@ -1,0 +1,209 @@
+{
+  "GIA-001": {
+    "id": "GIA-001",
+    "categoria": "Validação inadequada de entrada e injeção",
+    "descricao": "Categoria que reúne falhas nas quais dados externos são utilizados sem validação, normalização, sanitização ou parametrização adequada. Em código gerado por IA, esse problema pode ocorrer quando o modelo produz uma solução funcional, porém omite controles de entrada ou constrói comandos, consultas e respostas HTML por concatenação de strings.",
+    "evidencias_literatura": "Pearce et al. (2022) e Fu et al. (2025) relatam vulnerabilidades recorrentes em código gerado ou assistido por IA relacionadas a validação inadequada e injeção. Dora et al. (2025) também identificam problemas desse tipo em aplicações web geradas por LLMs.",
+    "cwe": ["CWE-20", "CWE-78", "CWE-79", "CWE-89"],
+    "owasp": ["A03:2021 – Injection"],
+    "exemplos_ocorrencia": [
+      "Concatenação de entrada do usuário em consultas SQL",
+      "Uso de parâmetros externos em chamadas de sistema",
+      "Renderização de dados não tratados em páginas web",
+      "Uso de eval, exec ou funções equivalentes com conteúdo controlável pelo usuário"
+    ],
+    "impacto": "Pode permitir execução de comandos, acesso indevido a dados, manipulação de consultas, Cross-Site Scripting, comprometimento da aplicação e movimentação para outros componentes do sistema.",
+    "forma_de_deteccao": "SAST para padrões conhecidos de injeção; heurísticas para identificar concatenação de strings com dados externos; revisão apoiada em trechos que recebem input, request, args, form, query, headers ou payloads e os utilizam em comandos, consultas ou renderização.",
+    "mitigacao": {
+      "o_que_verificar": "Identificar no código todos os pontos em que dados externos — provenientes de input, request, args, form, headers ou fontes equivalentes — são utilizados em consultas SQL, chamadas de sistema operacional, funções de execução dinâmica (eval, exec) ou renderizados diretamente em páginas HTML sem tratamento prévio.",
+      "como_corrigir": [
+        "Consultas SQL: substituir qualquer construção que concatene o valor externo diretamente na string da consulta por consultas parametrizadas. Padrão inseguro: query = \"SELECT * FROM users WHERE name = '\" + nome + \"'\". Padrão seguro: cursor.execute('SELECT * FROM users WHERE name = ?', (nome,))",
+        "Chamadas de sistema operacional: substituir chamadas com shell=True pela forma com lista de argumentos e shell=False. Padrão inseguro: subprocess.run('ls ' + pasta, shell=True). Padrão seguro: subprocess.run(['ls', pasta], shell=False)",
+        "Saídas renderizadas em HTML: aplicar codificação de saída sensível ao contexto. Padrão seguro com framework com auto-escape: return render_template('perfil.html', nome=nome)",
+        "Validação por lista de permissões: verificar se o valor pertence ao conjunto esperado. Exemplo: ORDENACOES_VALIDAS = {'asc', 'desc'}; if ordenacao not in ORDENACOES_VALIDAS: raise ValueError('Ordenação inválida')",
+        "Funções de execução dinâmica: eliminar eval/exec com conteúdo externo. Para cálculos matemáticos, usar asteval: from asteval import Interpreter; aeval = Interpreter(); resultado = aeval(formula)"
+      ],
+      "como_validar": "Executar análise estática com Bandit (regras B608, B602, B603, B307) e confirmar ausência de novos achados. Complementar com testes funcionais utilizando payloads representativos: ' OR '1'='1 para SQL; ; cat /etc/passwd para comandos; <script>alert(1)</script> para XSS. Verificar o requisito ASVS 1.2.5."
+    },
+    "prioridade": "Alta"
+  },
+
+  "GIA-002": {
+    "id": "GIA-002",
+    "categoria": "Falhas de autenticação, autorização e controle de acesso",
+    "descricao": "Categoria que reúne situações em que o código gerado não verifica adequadamente identidade, sessão, permissões ou escopo de acesso antes de executar uma operação sensível. Em saídas de modelos de linguagem, a funcionalidade principal pode ser implementada, mas os controles de acesso podem ser omitidos, simplificados ou posicionados em local inadequado.",
+    "evidencias_literatura": "Dora et al. (2025) e Zhao et al. (2025) relatam falhas em aplicações web geradas por LLMs envolvendo autenticação, gerenciamento de sessão, autorização e proteção de recursos. Esses achados indicam que a ausência de contexto do sistema pode favorecer controles incompletos.",
+    "cwe": ["CWE-306", "CWE-862", "CWE-863"],
+    "owasp": ["A01:2021 – Broken Access Control", "A07:2021 – Identification and Authentication Failures"],
+    "exemplos_ocorrencia": [
+      "Rota administrativa sem verificação de sessão",
+      "Endpoint que altera dados sem checar o proprietário do recurso",
+      "Uso de tokens sem validação adequada",
+      "Funções sensíveis acessíveis diretamente por identificador previsível"
+    ],
+    "impacto": "Pode resultar em acesso não autorizado, alteração ou exclusão indevida de dados, exposição de informações sensíveis, escalonamento de privilégios e comprometimento de funcionalidades críticas.",
+    "forma_de_deteccao": "Heurísticas para localizar rotas ou funções sensíveis sem chamadas de autenticação/autorização; revisão apoiada de endpoints com verbos de alteração; análise de uso de decorators, middlewares, checagem de sessão, roles e ownership.",
+    "mitigacao": {
+      "o_que_verificar": "Identificar rotas e funções que executam operações sensíveis — leitura, alteração, exclusão, acesso administrativo — e verificar se cada uma exige autenticação e autorização explícitas. Verificar também se endpoints recebem identificadores de recurso sem checar propriedade (IDOR).",
+      "como_corrigir": [
+        "Autenticação ausente: toda rota sensível deve exigir autenticação explícita via mecanismo consolidado do framework. Padrão inseguro: @app.route('/admin/usuarios') def listar_usuarios(): return Usuario.query.all(). Padrão seguro: @app.route('/admin/usuarios') @login_required def listar_usuarios(): return Usuario.query.all()",
+        "Autorização ausente (IDOR): verificar no servidor se o recurso pertence ao usuário autenticado. Padrão seguro: pedido = Pedido.query.filter_by(id=pedido_id, usuario_id=current_user.id).first_or_404()",
+        "Autorização por papel: verificação deve ocorrer no servidor via decorator. Exemplo: @roles_required('admin') def deletar_usuario(id): ...",
+        "Princípio do menor privilégio e negação por padrão: se não houver regra explícita permitindo, a operação é bloqueada."
+      ],
+      "como_validar": "Testes para acesso sem autenticação (espera HTTP 401); acesso com papel insuficiente (espera HTTP 403); acesso cruzado entre usuários A→B pelo ID (espera HTTP 403 ou 404). Verificar requisitos ASVS de controle de acesso."
+    },
+    "prioridade": "Alta"
+  },
+
+  "GIA-003": {
+    "id": "GIA-003",
+    "categoria": "Uso inseguro de bibliotecas, APIs e dependências",
+    "descricao": "Categoria relacionada ao uso de bibliotecas, APIs, pacotes ou dependências de forma insegura, desatualizada, inexistente ou não verificada. No contexto de IA generativa, inclui o risco de package hallucination, em que o modelo sugere nomes de pacotes plausíveis, porém inexistentes ou incorretos.",
+    "evidencias_literatura": "Spracklen et al. (2025) discutem riscos de package hallucination em código gerado por modelos de linguagem, com taxas de alucinação de 5,2% a 21,7% dependendo do modelo. A literatura sobre código gerado por IA também indica que modelos podem sugerir bibliotecas ou APIs sem garantir procedência, versão, manutenção ou adequação de segurança.",
+    "cwe": ["CWE-829", "CWE-1104"],
+    "owasp": ["A06:2021 – Vulnerable and Outdated Components"],
+    "exemplos_ocorrencia": [
+      "Importação de pacote inexistente",
+      "Dependência com nome semelhante a pacote legítimo (slopsquatting)",
+      "Uso de versão vulnerável (ex.: lxml 4.6.0, jinja2 3.1.1)",
+      "Instalação automática de pacote sugerido por IA sem verificação",
+      "Chamada de API depreciada ou insegura"
+    ],
+    "impacto": "Pode permitir ataques de cadeia de suprimentos, instalação de pacotes maliciosos, exploração de vulnerabilidades conhecidas, quebra de compatibilidade e incorporação de código externo não confiável.",
+    "forma_de_deteccao": "Heurísticas para extrair dependências e verificar existência, origem, versão e reputação; comparação com arquivos de dependências; SAST para chamadas de APIs inseguras; pip-audit para vulnerabilidades conhecidas em dependências Python.",
+    "mitigacao": {
+      "o_que_verificar": "Identificar todas as importações e comandos de instalação no código gerado por IA. Spracklen et al. (2025) demonstram taxas de alucinação de 5,2% (modelos comerciais) a 21,7% (modelos abertos), com mais de 205 mil nomes únicos inventados. Uma replicação de 2026 confirmou taxas de 4,62% a 6,10% nos modelos mais recentes. O risco concreto é o slopsquatting: atacante registra o nome alucinado com código malicioso. Caso real: huggingface-cli acumulou >30.000 downloads antes de ser identificada.",
+      "como_corrigir": [
+        "Verificar existência e origem antes de instalar: confirmar o nome exato em https://pypi.org, verificar mantenedor, data da última versão, repositório e volume de downloads em https://pypistats.org/packages/<nome>. Casos reais: colourama (variante maliciosa de colorama que roubava Bitcoin) e ultralytics (comprometida com minerador em dez/2024 em 4 versões).",
+        "Fixar versões e usar hashes criptográficos. Exemplo de requirements.txt correto: Django==5.2.1; requests==2.33.0; lxml==4.9.4; jinja2==3.1.4. Instalar com verificação de hash: pip install -r requirements.txt --require-hashes",
+        "Verificar vulnerabilidades com pip-audit (Trail of Bits + Google, escaneia contra PyPI Advisory Database e OSV): pip install pip-audit && pip-audit -r requirements.txt. Para correção automática: pip-audit -r requirements.txt --fix",
+        "Integrar ao CI GitHub Actions: uses: pypa/gh-action-pip-audit@v1.0.0 with inputs: requirements.txt"
+      ],
+      "como_validar": "pip-audit -r requirements.txt no CI sem achados. requirements.txt com versões exatas commitado. Cada dependência com página oficial ativa no PyPI. Para rastreabilidade: pip-audit -r requirements.txt -f cyclonedx-json."
+    },
+    "prioridade": "Alta"
+  },
+
+  "GIA-004": {
+    "id": "GIA-004",
+    "categoria": "Exposição de dados sensíveis e segredos no código",
+    "descricao": "Categoria que abrange a exposição de credenciais, chaves, tokens, senhas, dados pessoais, caminhos internos ou informações sensíveis diretamente no código, em logs ou em respostas da aplicação. Em código gerado por IA, pode ocorrer quando o modelo utiliza valores fictícios de forma insegura ou sugere padrões que acabam sendo incorporados como implementação real.",
+    "evidencias_literatura": "Pearce et al. (2022), Fu et al. (2025) e Tihanyi et al. (2025) indicam que códigos gerados por IA podem conter práticas inseguras relacionadas à proteção inadequada de informações e ao uso de valores sensíveis diretamente no código.",
+    "cwe": ["CWE-798", "CWE-200"],
+    "owasp": ["A02:2021 – Cryptographic Failures"],
+    "exemplos_ocorrencia": [
+      "Chave de API codificada no código-fonte",
+      "Senha em string literal",
+      "Token impresso em log",
+      "Retorno de erro contendo segredo",
+      "Credenciais em arquivo de exemplo sem indicação clara de substituição por variável de ambiente"
+    ],
+    "impacto": "Pode permitir acesso indevido a serviços, vazamento de dados, comprometimento de contas, uso abusivo de APIs e exposição de informações internas da aplicação ou da infraestrutura.",
+    "forma_de_deteccao": "SAST para padrões de hardcoded secrets; heurísticas baseadas em nomes de variáveis e formatos de tokens; revisão apoiada de logs, mensagens de erro, arquivos de configuração e exemplos gerados.",
+    "mitigacao": {
+      "o_que_verificar": "",
+      "como_corrigir": [
+        "Remover segredos do código e armazená-los em variáveis de ambiente ou cofres de segredo.",
+        "Evitar logs contendo credenciais, tokens, dados pessoais ou informações internas.",
+        "Usar arquivos de exemplo com valores claramente fictícios.",
+        "Rotacionar credenciais expostas e revisar histórico de versionamento quando necessário.",
+        "Aplicar ferramentas de secret scanning no repositório e no pipeline."
+      ],
+      "como_validar": ""
+    },
+    "prioridade": "Alta quando houver credenciais reais, dados pessoais ou tokens; Média quando houver apenas placeholders inseguros que podem induzir mau uso."
+  },
+
+  "GIA-005": {
+    "id": "GIA-005",
+    "categoria": "Tratamento inadequado de erros e exceções",
+    "descricao": "Categoria que reúne implementações em que erros são ignorados, tratados de forma genérica, mascarados ou expostos indevidamente. Em código gerado por IA, é comum que a solução priorize o fluxo funcional e utilize blocos de exceção simplificados, como capturas genéricas ou silenciamento de falhas.",
+    "evidencias_literatura": "Sajadi et al. (2025) e Tihanyi et al. (2025) apontam que respostas e programas gerados por LLMs podem apresentar práticas de segurança superficiais ou incompletas. Esse comportamento favorece tratamento de erros sem registro, sem recuperação segura ou com exposição excessiva de detalhes.",
+    "cwe": ["CWE-703", "CWE-209"],
+    "owasp": ["A09:2021 – Security Logging and Monitoring Failures"],
+    "exemplos_ocorrencia": [
+      "except Exception: pass",
+      "Retorno de stack trace ao usuário",
+      "Captura genérica sem log",
+      "Continuação da execução após falha crítica",
+      "Mensagens de erro que expõem caminhos internos, consultas, tokens ou detalhes de infraestrutura"
+    ],
+    "impacto": "Pode ocultar falhas exploráveis, dificultar auditoria, permitir estados inconsistentes, expor informações sensíveis e reduzir a capacidade de detecção de incidentes.",
+    "forma_de_deteccao": "Heurísticas para localizar capturas genéricas, blocos vazios, pass em exceções, prints de exceção e respostas contendo detalhes internos; SAST quando houver regras específicas para tratamento inseguro.",
+    "mitigacao": {
+      "o_que_verificar": "",
+      "como_corrigir": [
+        "Tratar exceções específicas e evitar capturas genéricas sem justificativa.",
+        "Registrar falhas relevantes de forma segura, sem expor dados sensíveis.",
+        "Retornar mensagens genéricas ao usuário e manter detalhes técnicos apenas em logs protegidos.",
+        "Definir comportamento seguro para falhas críticas, interrompendo operações quando necessário.",
+        "Testar cenários de erro para verificar consistência, registro e resposta adequada."
+      ],
+      "como_validar": ""
+    },
+    "prioridade": "Média, podendo ser Alta quando o erro expõe dados sensíveis, permite bypass de controles ou oculta falhas críticas de segurança."
+  },
+
+  "GIA-006": {
+    "id": "GIA-006",
+    "categoria": "Configurações inseguras e proteções ausentes",
+    "descricao": "Categoria que abrange configurações frágeis, valores padrão inseguros, ausência de proteções recomendadas e mecanismos de defesa não habilitados. Em aplicações geradas por IA, essas falhas podem surgir quando o modelo produz uma implementação mínima funcional sem configurar adequadamente segurança de sessão, cabeçalhos, criptografia, CORS, debug ou proteção de rotas.",
+    "evidencias_literatura": "Dora et al. (2025) e Zhao et al. (2025) relatam problemas em aplicações geradas por LLMs envolvendo proteção de recursos, configurações web, autenticação, sessão e mecanismos de segurança ausentes ou incompletos.",
+    "cwe": ["CWE-16"],
+    "owasp": ["A05:2021 – Security Misconfiguration"],
+    "exemplos_ocorrencia": [
+      "debug=True em ambiente de produção",
+      "CORS permissivo",
+      "Ausência de cabeçalhos de segurança",
+      "Cookie sem flags Secure, HttpOnly ou SameSite",
+      "Endpoint sensível sem rate limit",
+      "Configurações padrão mantidas sem revisão"
+    ],
+    "impacto": "Pode ampliar a superfície de ataque, facilitar exploração de falhas, permitir vazamento de informações, enfraquecer sessões e reduzir a resistência da aplicação contra ataques comuns.",
+    "forma_de_deteccao": "Heurísticas para configurações de framework, flags inseguras, CORS permissivo, ausência de cabeçalhos e uso de modo debug; revisão apoiada de arquivos de configuração, inicialização da aplicação e middlewares.",
+    "mitigacao": {
+      "o_que_verificar": "",
+      "como_corrigir": [
+        "Desabilitar modo debug e configurações de desenvolvimento em produção.",
+        "Aplicar cabeçalhos de segurança adequados ao contexto da aplicação.",
+        "Configurar cookies com flags de segurança e políticas de sessão adequadas.",
+        "Restringir CORS, hosts permitidos e origens confiáveis.",
+        "Utilizar checklists de hardening para o framework adotado."
+      ],
+      "como_validar": ""
+    },
+    "prioridade": "Média a Alta, dependendo da exposição da aplicação e da criticidade da configuração insegura identificada."
+  },
+
+  "GIA-007": {
+    "id": "GIA-007",
+    "categoria": "Implementação incompleta de controles de segurança",
+    "descricao": "Categoria voltada a situações em que o código sugere a existência de um controle de segurança, mas a implementação é parcial, superficial, pendente ou insuficiente. Em código gerado por IA, isso pode ocorrer quando o modelo produz uma solução aparentemente completa, mas deixa validações, verificações ou políticas apenas como comentários, placeholders ou estruturas incompletas.",
+    "evidencias_literatura": "Sajadi et al. (2025) e Tihanyi et al. (2025) indicam que códigos e respostas de programação produzidos por LLMs podem ser funcionais, porém inseguros ou incompletos do ponto de vista de práticas de segurança.",
+    "cwe": [],
+    "owasp": [],
+    "observacao_cwe_owasp": "Mapeamento variável conforme o controle ausente ou incompleto; pode se relacionar a categorias de validação, autenticação, autorização, criptografia, logging, configuração ou tratamento de erro.",
+    "exemplos_ocorrencia": [
+      "Comentário TODO em validação de senha",
+      "Função is_authorized retornando sempre True",
+      "Placeholder para criptografia",
+      "Validação implementada apenas no cliente",
+      "Bloco de segurança citado em comentário, mas ausente no código executável"
+    ],
+    "impacto": "Pode gerar falsa sensação de segurança, permitir incorporação de código incompleto em produção, causar bypass de controles e dificultar a identificação de falhas durante revisão superficial.",
+    "forma_de_deteccao": "Heurísticas para TODO, FIXME, pass, placeholders, retornos constantes em funções de segurança e comentários indicando implementação futura; revisão apoiada de funções com nomes associados a validação, autenticação, autorização, criptografia e verificação.",
+    "mitigacao": {
+      "o_que_verificar": "",
+      "como_corrigir": [
+        "Não considerar placeholders ou comentários como controles implementados.",
+        "Substituir estruturas temporárias por verificações efetivas e testáveis.",
+        "Criar testes específicos para confirmar o funcionamento dos controles de segurança.",
+        "Revisar funções com nomes sensíveis para verificar se aplicam regras reais.",
+        "Bloquear integração de código com controles explicitamente pendentes ou simulados."
+      ],
+      "como_validar": ""
+    },
+    "prioridade": "Média a Alta, variando conforme o controle incompleto e a criticidade da funcionalidade protegida."
+  }
+}

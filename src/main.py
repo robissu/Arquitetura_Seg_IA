@@ -26,22 +26,19 @@ def main():
         result = normalize_code(raw_code)
 
         output_path = OUTPUT_DIR / f"{input_path.stem}_normalizado.py"
-        output_path.write_text(result["normalized_code"], encoding="utf-8")
+        output_path.write_text(result["code"], encoding="utf-8")
 
         print("\n" + "=" * 80)
         print(f"TESTE: {input_path.name}")
         print("=" * 80)
 
-        if result["status"] == "ready":
-            print_section("DEPOIS DA NORMALIZAÇÃO", result["normalized_code"])
+        if result["status"] in ("valid", "incomplete"):
+            print_section("DEPOIS DA NORMALIZAÇÃO", result["code"])
         else:
-            print_section("CÓDIGO EXTRAÍDO/PREPARADO ATÉ A FALHA", result["normalized_code"])
+            print_section("CÓDIGO EXTRAÍDO/PREPARADO ATÉ A FALHA", result["code"])
 
         print("\n--- STATUS ---")
         print(result["status"])
-
-        print("\n--- CÓDIGO VÁLIDO? ---")
-        print(result["is_valid_python"])
 
         print("\n--- AVISOS ---")
         if result["warnings"]:

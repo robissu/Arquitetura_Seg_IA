@@ -245,7 +245,7 @@ def extract_metadata(code: str) -> dict:
     )
 
     return {
-        "num_lines": len(code.splitlines()),
+        "line_count": len(code.splitlines()),
         "imports": imports,
         "functions": functions,
         "classes": classes,
@@ -273,6 +273,7 @@ def normalize_code(raw_code: str) -> dict:
 
     completeness_warnings = detect_incomplete_fragment(code)
     warnings.extend(completeness_warnings)
+    has_completeness_issues = bool(completeness_warnings)
 
     is_valid_before_formatting, syntax_error = validate_syntax(code)
 
@@ -285,9 +286,8 @@ def normalize_code(raw_code: str) -> dict:
         )
 
         return {
-            "status": "invalid_syntax",
-            "normalized_code": code,
-            "is_valid_python": False,
+            "status": "invalid",
+            "code": code,
             "warnings": warnings,
             "errors": errors,
             "metadata": None,
@@ -307,9 +307,8 @@ def normalize_code(raw_code: str) -> dict:
         )
 
         return {
-            "status": "invalid_after_formatting",
-            "normalized_code": formatted_code,
-            "is_valid_python": False,
+            "status": "invalid",
+            "code": formatted_code,
             "warnings": warnings,
             "errors": errors,
             "metadata": None,
@@ -330,10 +329,11 @@ def normalize_code(raw_code: str) -> dict:
     if metadata["commented_code_lines"]:
         warnings.append("Possível código comentado detectado.")
 
+    status = "incomplete" if has_completeness_issues else "valid"
+
     return {
-        "status": "ready",
-        "normalized_code": formatted_code,
-        "is_valid_python": True,
+        "status": status,
+        "code": formatted_code,
         "warnings": warnings,
         "errors": errors,
         "metadata": metadata,
