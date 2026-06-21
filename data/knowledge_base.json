@@ -112,7 +112,7 @@
       ],
       "como_validar": ""
     },
-    "prioridade": "Alta quando houver credenciais reais, dados pessoais ou tokens; Média quando houver apenas placeholders inseguros que podem induzir mau uso."
+    "prioridade": "Alta"
   },
 
   "GIA-005": {
@@ -142,7 +142,7 @@
       ],
       "como_validar": ""
     },
-    "prioridade": "Média, podendo ser Alta quando o erro expõe dados sensíveis, permite bypass de controles ou oculta falhas críticas de segurança."
+    "prioridade": "Média"
   },
 
   "GIA-006": {
@@ -173,7 +173,7 @@
       ],
       "como_validar": ""
     },
-    "prioridade": "Média a Alta, dependendo da exposição da aplicação e da criticidade da configuração insegura identificada."
+    "prioridade": "Alta"
   },
 
   "GIA-007": {
@@ -204,6 +204,6 @@
       ],
       "como_validar": ""
     },
-    "prioridade": "Média a Alta, variando conforme o controle incompleto e a criticidade da funcionalidade protegida."
+    "prioridade": "Alta"
   }
 }
