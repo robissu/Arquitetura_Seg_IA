@@ -9,40 +9,56 @@ Este projeto implementa uma arquitetura de análise de segurança para **código
 - analisar código gerado por modelos de linguagem;
 - identificar vulnerabilidades por meio de SAST e heurísticas complementares;
 - classificar os achados com base em **CWE**, **OWASP** e no Guia GIA produzido no TCC;
-- recomendar ações de mitigação e correção estruturadas.
+- recomendar ações de mitigação e correção estruturadas, sem alterar o código.
 
 ---
 
 ## Arquitetura proposta
 
-O protótipo é composto por quatro módulos executados em sequência:
+O protótipo é composto por quatro módulos integrados em um fluxo contínuo:
 
 ```text
+Entrada (.txt — código bruto gerado por IA)
+           ↓
 Módulo 1 — Coleta e normalização
            ↓
-Módulo 2 — Análise de segurança
+Módulo 2 — Análise de segurança   (Bandit  +  heurísticas, em paralelo)
            ↓
-Módulo 3 — Classificação
+Módulo 3 — Classificação          (achado → GIA / CWE / OWASP)
            ↓
-Módulo 4 — Recomendação
+Módulo 4 — Recomendação           (consulta ao guia + relatório final)
+           ↓
+Saída (data/output/<nome>_report.json)
 ```
+
+No Módulo 2, a análise estática (Bandit) e as heurísticas complementares atuam **em paralelo** sobre o mesmo código normalizado; seus achados são reunidos em um formato intermediário comum antes da classificação.
+
+---
+
+## Fluxo de execução
+
+O ponto de entrada (`src/main.py`) executa, para cada arquivo de entrada:
+
+1. **Normalização** (`normalize_code`) — limpa o artefato e valida a sintaxe. Código inválido **bloqueia** a análise e gera um relatório de erro.
+2. **Análise** (`run_bandit` + `run_heuristics`) — produz achados no formato intermediário unificado.
+3. **Classificação** (`classify_findings`) — enriquece cada achado com `gia_id`, `gia_category`, `cwe`, `owasp`, `priority` e `requires_manual_review`.
+4. **Recomendação** (`generate_report`) — consulta o guia pelo `gia_id` e monta o relatório final.
+5. **Persistência** (`save_report`) — grava `data/output/<nome>_report.json`.
 
 ---
 
 ## Estado atual do desenvolvimento
 
-### Concluído
-
-**Módulo 1 — Coleta e normalização** (`src/collect/normalize.py`)
+### Módulo 1 — Coleta e normalização (`src/collect/normalize.py`)
 
 - remoção de artefatos textuais de saídas de LLM (texto introdutório, conclusivo, cercas de markdown);
 - normalização de quebras de linha e codificação UTF-8;
 - organização de imports com isort e formatação determinística com Black;
 - validação sintática com `ast.parse` — código inválido é bloqueado e marcado;
-- extração de metadados estruturais: imports, funções, classes, linhas duplicadas e linhas comentadas;
+- extração de metadados estruturais: imports, funções, classes, contagem de linhas;
 - detecção de fragmentos incompletos (`...`, comentários de omissão).
 
-**Módulo 2 — Análise de segurança** (`src/analyze/`)
+### Módulo 2 — Análise de segurança (`src/analyze/`)
 
 Camada 1 — SAST com Bandit (`sast.py`):
 
@@ -50,7 +66,7 @@ Camada 1 — SAST com Bandit (`sast.py`):
 - captura de severidade, confiança, regra, linha e trecho de contexto de cada achado;
 - saída padronizada no formato intermediário unificado.
 
-Camada 2 — Heurísticas complementares (`heuristics.py`):
+Camada 2 — Heurísticas complementares (`heuristics.py`), via travessia de AST:
 
 | ID | O que detecta |
 |---|---|
@@ -63,15 +79,56 @@ Camada 2 — Heurísticas complementares (`heuristics.py`):
 | H007 | Rota com parâmetro ID sem checagem de propriedade do recurso (IDOR) |
 | H008 | Import de pacote ausente em `requirements.txt` |
 
-**Base de conhecimento** (`data/knowledge_base.json`)
+### Módulo 3 — Classificação (`src/classify/classifier.py`)
+
+- associa cada achado a uma categoria do Guia GIA por meio dos mapeamentos `BANDIT_TO_GIA` e `HEURISTIC_TO_GIA`;
+- enriquece o achado com categoria, CWE, OWASP e prioridade lidos do `knowledge_base.json` (o guia é a única fonte de verdade);
+- achados sem mapeamento direto são marcados como `requires_manual_review` para revisão humana.
+
+### Módulo 4 — Recomendação (`src/recommend/recommender.py`)
+
+- consulta a base de conhecimento pelo `gia_id` e devolve as orientações de mitigação (impacto, o que verificar, como corrigir, como validar);
+- **não corrige o código** — apenas fornece orientações estruturadas;
+- monta o relatório final em JSON, com lista por achado e um resumo agrupado por GIA.
+
+### Base de conhecimento (`data/knowledge_base.json`)
 
 - arquivo JSON com as sete categorias do Guia GIA (GIA-001 a GIA-007);
 - cada entrada contém: CWE, OWASP, impacto, exemplos de ocorrência e as três etapas de mitigação (o que verificar, como corrigir, como validar).
 
-### Em desenvolvimento
+---
 
-- **Módulo 3 — Classificação**: associa cada achado ao GIA, CWE e OWASP correspondente.
-- **Módulo 4 — Recomendação**: consulta a base de conhecimento e gera o relatório final em JSON.
+## Formato do relatório
+
+Cada execução gera um relatório JSON com três seções:
+
+```text
+{
+  "analysis_summary": {        # visão geral
+    "file", "status",
+    "total_findings",
+    "by_severity",             # contagem por HIGH / MEDIUM / LOW
+    "by_gia"                   # contagem por categoria GIA
+  },
+  "findings": [                # um item por achado
+    {
+      "id", "origin", "rule_id", "line", "severity", "confidence",
+      "description", "context",
+      "classification": { "gia_id", "gia_category", "cwe", "owasp", "priority" },
+      "recommendation": {
+        "impact", "what_to_check", "how_to_fix",
+        "how_to_validate", "requires_manual_review"
+      }
+    }
+  ],
+  "gia_summary": [             # achados agrupados por categoria GIA
+    { "gia_id", "gia_category", "priority", "cwe", "owasp",
+      "finding_count", "finding_ids", "lines", "recommendation" }
+  ]
+}
+```
+
+Para entradas com código sintaticamente inválido, o relatório registra `status: "invalid"`, sem achados, e inclui as seções `errors` e `warnings` da normalização.
 
 ---
 
@@ -91,10 +148,15 @@ Arquitetura_Seg_IA/
 │   ├── analyze/
 │   │   ├── sast.py               # Módulo 2 — wrapper Bandit
 │   │   └── heuristics.py         # Módulo 2 — heurísticas H001-H008
+│   ├── classify/
+│   │   └── classifier.py         # Módulo 3 — classificação (achado → GIA)
+│   ├── recommend/
+│   │   └── recommender.py        # Módulo 4 — recomendação e relatório final
 │   ├── utils/
 │   │   └── io_utils.py           # Funções auxiliares de leitura e escrita
-│   └── main.py                   # Ponto de entrada do protótipo
+│   └── main.py                   # Ponto de entrada — pipeline completo
 │
+├── demo_pipeline.py              # Runner de demonstração (normalize → análise)
 ├── .venv/                        # Ambiente virtual Python (não versionado)
 ├── requirements.txt
 └── README.md
@@ -159,30 +221,38 @@ pip install -r requirements.txt
 
 ### 1. Adicionar uma entrada de teste
 
-Crie ou edite um arquivo em `data/input/`, por exemplo `data/input/exemplo_01.txt`. O arquivo pode conter uma saída bruta de código gerado por IA, incluindo texto explicativo e cercas de markdown.
+Crie ou edite um arquivo em `data/input/`, por exemplo `data/input/exemplo_02.txt`. O arquivo pode conter uma saída bruta de código gerado por IA, incluindo texto explicativo e cercas de markdown.
 
 ### 2. Executar o protótipo
 
-Na raiz do projeto, com o ambiente virtual ativado:
+Na raiz do projeto:
 
 ```bash
+# processa todos os arquivos de data/input/
 python src/main.py
+
+# ou processa um arquivo específico
+python src/main.py data/input/exemplo_02.txt
 ```
+
+O `main.py` localiza automaticamente as ferramentas do ambiente virtual, então pode ser executado diretamente com o interpretador do `.venv` mesmo sem ativá-lo.
+
+### 3. Conferir o resultado
+
+O protótipo imprime um resumo no terminal e grava o relatório completo em `data/output/<nome>_report.json`.
 
 ---
 
 ## Próximos passos
 
-- implementar o Módulo 3 — Classificação (associar achados a GIA, CWE e OWASP);
-- implementar o Módulo 4 — Recomendação (gerar relatório final em JSON com orientações de mitigação);
-- integrar os quatro módulos no fluxo completo em `main.py`;
-- criar suíte de testes automatizados com pytest.
+- criar suíte de testes automatizados com pytest cobrindo cada módulo;
+- ampliar a base de conhecimento (campos de verificação e validação dos GIA-004 a GIA-007).
 
 ---
 
 ## Observações
 
-Este repositório representa um **protótipo em desenvolvimento** voltado à validação da arquitetura proposta no TCC. O escopo atual cobre os Módulos 1 e 2; os Módulos 3 e 4 estão em implementação.
+Este repositório representa um **protótipo** voltado à validação da arquitetura proposta no TCC. O escopo é restrito a código Python e o módulo de recomendação nunca altera o código analisado — apenas fornece orientações de mitigação.
 
 ---
 

@@ -126,6 +126,10 @@ def _h001_h002(tree: ast.AST, lines: list[str]) -> list[dict]:
     """
     H001: except sem nome (bare ou Exception) com corpo apenas `pass`.
     H002: except com ligação de nome (as e) e corpo apenas `pass`.
+
+    Fonte: CWE-703 (Improper Check or Handling of Exceptional Conditions);
+    evidência em código gerado por IA: Tihanyi et al. (2025), Sajadi et al.
+    (2025). Categoria do guia: GIA-005.
     """
     findings = []
     for node in ast.walk(tree):
@@ -156,7 +160,12 @@ def _h001_h002(tree: ast.AST, lines: list[str]) -> list[dict]:
 
 
 def _h003(tree: ast.AST, lines: list[str]) -> list[dict]:
-    """H003: TODO/FIXME dentro de funções com nome sensível de segurança."""
+    """H003: TODO/FIXME dentro de funções com nome sensível de segurança.
+
+    Fonte: CWE-546 (Suspicious Comment) — controle de segurança possivelmente
+    incompleto; evidência: Sajadi et al. (2025), Tihanyi et al. (2025).
+    Categoria do guia: GIA-007.
+    """
     findings = []
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -182,7 +191,11 @@ def _h003(tree: ast.AST, lines: list[str]) -> list[dict]:
 
 
 def _h004(tree: ast.AST, lines: list[str]) -> list[dict]:
-    """H004: Função de verificação de acesso que retorna sempre True ou 1."""
+    """H004: Função de verificação de acesso que retorna sempre True ou 1.
+
+    Fonte: CWE-862/CWE-863 (Missing/Incorrect Authorization) — verificação de
+    acesso implementada como stub. Categoria do guia: GIA-007.
+    """
     findings = []
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -205,7 +218,11 @@ def _h004(tree: ast.AST, lines: list[str]) -> list[dict]:
 
 
 def _h005(tree: ast.AST, lines: list[str]) -> list[dict]:
-    """H005: Entrada externa usada diretamente como argumento sem validação."""
+    """H005: Entrada externa usada diretamente como argumento sem validação.
+
+    Fonte: CWE-20 (Improper Input Validation); evidência em código gerado por
+    IA: Pearce et al. (2022), Fu et al. (2025). Categoria do guia: GIA-001.
+    """
     findings = []
     seen_lines: set[int] = set()
 
@@ -230,7 +247,12 @@ def _h005(tree: ast.AST, lines: list[str]) -> list[dict]:
 
 
 def _h006(tree: ast.AST, lines: list[str]) -> list[dict]:
-    """H006: Rota Flask/Django com método sensível sem decorator de autenticação."""
+    """H006: Rota Flask/Django com método sensível sem decorator de autenticação.
+
+    Fonte: CWE-306 (Missing Authentication for Critical Function); evidência em
+    aplicações web geradas por LLM: Dora et al. (2025), Zhao et al. (2025).
+    Categoria do guia: GIA-002.
+    """
     findings = []
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -265,7 +287,12 @@ def _h006(tree: ast.AST, lines: list[str]) -> list[dict]:
 
 
 def _h007(tree: ast.AST, lines: list[str]) -> list[dict]:
-    """H007: Rota com parâmetro ID sem checar propriedade do recurso."""
+    """H007: Rota com parâmetro ID sem checar propriedade do recurso.
+
+    Fonte: CWE-639 (Authorization Bypass Through User-Controlled Key, IDOR) /
+    CWE-862 (Missing Authorization); evidência: Dora et al. (2025), Zhao et al.
+    (2025). Categoria do guia: GIA-002.
+    """
     findings = []
 
     _OWNERSHIP_MARKERS = frozenset({
@@ -325,7 +352,13 @@ def _h007(tree: ast.AST, lines: list[str]) -> list[dict]:
 
 
 def _h008(tree: ast.AST, lines: list[str], requirements_path: str | None) -> list[dict]:
-    """H008: Import de pacote ausente em requirements.txt."""
+    """H008: Import de pacote ausente em requirements.txt.
+
+    Fonte: CWE-1104 (Use of Unmaintained Third Party Components) e CWE-829
+    (Inclusion of Functionality from Untrusted Control Sphere); risco de package
+    hallucination / slopsquatting documentado por Spracklen et al. (2025)
+    (taxas de 5,2%–21,7%). Categoria do guia: GIA-003.
+    """
     if requirements_path is None:
         return []
     req_path = Path(requirements_path)
