@@ -10,7 +10,7 @@ Decisões de design (alinhadas ao TCC §3.3.4):
   texto novo nem correção automática de código.
 - Relatório com chaves em inglês (consistente com o formato intermediário e a
   classificação) e valores em português (vindos do guia).
-- Estrutura: lista por achado (§3.4) + um resumo agrupado por GIA.
+- Estrutura: lista por achado + um resumo agrupado por GIA.
 """
 
 import json

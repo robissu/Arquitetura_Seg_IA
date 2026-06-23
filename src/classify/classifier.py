@@ -13,7 +13,7 @@ de verdade. Achados sem mapeamento direto recebem a marcação
 import json
 from pathlib import Path
 
-# ── Mapeamentos exatos regra → GIA (§3.2) ────────────────────────────
+# ── Mapeamentos exatos regra → GIA ────────────────────────────────────────────
 
 BANDIT_TO_GIA = {
     # GIA-001 — Validação inadequada de entrada e injeção
@@ -127,7 +127,7 @@ def classify_findings(findings: list[dict],
     """Classifica uma lista de achados no formato intermediário unificado.
 
     knowledge_base: guia já carregado; quando None, é lido do caminho padrão.
-    Retorna a lista de achados classificados (formato §3.2).
+    Retorna a lista de achados classificados no formato intermediário enriquecido.
     """
     kb = knowledge_base if knowledge_base is not None else load_knowledge_base()
     return [classify_finding(finding, kb) for finding in findings]

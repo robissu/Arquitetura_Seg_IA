@@ -102,15 +102,15 @@
     "impacto": "Pode permitir acesso indevido a serviços, vazamento de dados, comprometimento de contas, uso abusivo de APIs e exposição de informações internas da aplicação ou da infraestrutura.",
     "forma_de_deteccao": "SAST para padrões de hardcoded secrets; heurísticas baseadas em nomes de variáveis e formatos de tokens; revisão apoiada de logs, mensagens de erro, arquivos de configuração e exemplos gerados.",
     "mitigacao": {
-      "o_que_verificar": "",
+      "o_que_verificar": "Identificar todas as strings com padrão de chave, token, senha ou credencial (atribuições a variáveis como API_KEY, SECRET, PASSWORD, TOKEN) e segredos embutidos em URLs de conexão. Verificar logs e mensagens de erro que possam imprimir credenciais ou dados pessoais, e arquivos de exemplo ou de configuração (.env, settings) que contenham valores reais em vez de placeholders.",
       "como_corrigir": [
-        "Remover segredos do código e armazená-los em variáveis de ambiente ou cofres de segredo.",
-        "Evitar logs contendo credenciais, tokens, dados pessoais ou informações internas.",
-        "Usar arquivos de exemplo com valores claramente fictícios.",
-        "Rotacionar credenciais expostas e revisar histórico de versionamento quando necessário.",
-        "Aplicar ferramentas de secret scanning no repositório e no pipeline."
+        "Segredos embutidos no código: substituir valores fixos pela leitura de variável de ambiente. Padrão inseguro: API_KEY = \"sk-1a2b3c4d5e6f\". Padrão seguro: API_KEY = os.environ[\"API_KEY\"].",
+        "Logs com credenciais: registrar identificadores, nunca o segredo. Padrão inseguro: logging.info(f\"login com senha {senha}\"). Padrão seguro: logging.info(\"login do usuário %s\", usuario).",
+        "Arquivos de exemplo: usar placeholder e manter o arquivo real fora do versionamento. Padrão inseguro (.env versionado): API_KEY=sk-1a2b3c4d5e6f. Padrão seguro (.env.example, com .env no .gitignore): API_KEY=coloque-sua-chave-aqui.",
+        "Rotação e higienização: rotacionar credenciais expostas e limpar o histórico de versionamento quando necessário.",
+        "Varredura automatizada: aplicar ferramentas de secret scanning (por exemplo, gitleaks ou detect-secrets) no repositório e no pipeline."
       ],
-      "como_validar": ""
+      "como_validar": "Executar uma ferramenta de secret scanning (por exemplo, gitleaks ou detect-secrets) sobre o repositório e no pipeline de CI, confirmando ausência de achados. Confirmar que os segredos foram movidos para variáveis de ambiente (os.environ.get) ou cofre e que o Bandit (regras B105, B106, B107) não acusa senhas embutidas. Verificar que as respostas de erro não retornam valores sensíveis e, em caso de exposição prévia, que a credencial foi rotacionada e o histórico higienizado. Verificar o capítulo de Proteção de Dados do OWASP ASVS 5.0."
     },
     "prioridade": "Alta"
   },
@@ -132,15 +132,13 @@
     "impacto": "Pode ocultar falhas exploráveis, dificultar auditoria, permitir estados inconsistentes, expor informações sensíveis e reduzir a capacidade de detecção de incidentes.",
     "forma_de_deteccao": "Heurísticas para localizar capturas genéricas, blocos vazios, pass em exceções, prints de exceção e respostas contendo detalhes internos; SAST quando houver regras específicas para tratamento inseguro.",
     "mitigacao": {
-      "o_que_verificar": "",
+      "o_que_verificar": "Localizar blocos de captura genérica e silenciosa (except Exception: pass, except: pass), retorno de stack trace ou de traceback diretamente ao usuário, continuação da execução após falha crítica e mensagens de erro que exponham caminhos internos, consultas, tokens ou detalhes de infraestrutura.",
       "como_corrigir": [
-        "Tratar exceções específicas e evitar capturas genéricas sem justificativa.",
-        "Registrar falhas relevantes de forma segura, sem expor dados sensíveis.",
-        "Retornar mensagens genéricas ao usuário e manter detalhes técnicos apenas em logs protegidos.",
-        "Definir comportamento seguro para falhas críticas, interrompendo operações quando necessário.",
-        "Testar cenários de erro para verificar consistência, registro e resposta adequada."
+        "Captura genérica silenciosa: tratar exceção específica, registrar o erro e repropagar quando necessário. Padrão inseguro: except Exception: pass. Padrão seguro: except PedidoInvalidoError: logging.error(\"Falha ao processar pedido\", exc_info=True); raise.",
+        "Stack trace ao usuário: retornar mensagem genérica com identificador de correlação e registrar os detalhes apenas no log. Padrão inseguro: return {\"error\": traceback.format_exc()}, 500. Padrão seguro: ref = uuid4().hex; logging.error(\"Erro %s\", ref, exc_info=True); return {\"error\": \"Erro interno\", \"ref\": ref}, 500.",
+        "Falha segura: em falha crítica, interromper a operação em vez de prosseguir em estado inconsistente."
       ],
-      "como_validar": ""
+      "como_validar": "Escrever testes dos caminhos de erro que comprovem dois comportamentos: a resposta ao usuário é genérica (sem detalhes técnicos) e a falha é registrada em log seguro (logging.error(..., exc_info=True)) sem dados sensíveis. Confirmar que o Bandit (regras B110 e B112) e as heurísticas H001/H002 não acusam capturas silenciosas. Verificar o capítulo de Registro de Segurança e Tratamento de Erros do OWASP ASVS 5.0."
     },
     "prioridade": "Média"
   },
@@ -163,15 +161,14 @@
     "impacto": "Pode ampliar a superfície de ataque, facilitar exploração de falhas, permitir vazamento de informações, enfraquecer sessões e reduzir a resistência da aplicação contra ataques comuns.",
     "forma_de_deteccao": "Heurísticas para configurações de framework, flags inseguras, CORS permissivo, ausência de cabeçalhos e uso de modo debug; revisão apoiada de arquivos de configuração, inicialização da aplicação e middlewares.",
     "mitigacao": {
-      "o_que_verificar": "",
+      "o_que_verificar": "Verificar se o modo de depuração está desativado em produção (DEBUG=False no Django, debug=False no Flask), se a política de CORS não usa origem curinga (*), se os cookies de sessão possuem as flags Secure, HttpOnly e SameSite, se os cabeçalhos de segurança recomendados estão presentes (Strict-Transport-Security, Content-Security-Policy, X-Content-Type-Options) e se endpoints sensíveis possuem limitação de taxa. Revisar configurações padrão de framework mantidas sem ajuste.",
       "como_corrigir": [
-        "Desabilitar modo debug e configurações de desenvolvimento em produção.",
-        "Aplicar cabeçalhos de segurança adequados ao contexto da aplicação.",
-        "Configurar cookies com flags de segurança e políticas de sessão adequadas.",
-        "Restringir CORS, hosts permitidos e origens confiáveis.",
-        "Utilizar checklists de hardening para o framework adotado."
+        "Modo de depuração em produção: derivar o valor de variável de ambiente, com padrão seguro. Padrão inseguro: DEBUG = True. Padrão seguro: DEBUG = os.environ.get(\"DEBUG\", \"False\") == \"True\".",
+        "CORS permissivo: restringir a origens confiáveis explícitas. Padrão inseguro: CORS(app, origins=\"*\"). Padrão seguro: CORS(app, origins=[\"https://meusite.com\"]).",
+        "Cookies sem flags de segurança: habilitar Secure, HttpOnly e SameSite. Padrão inseguro: app.config[\"SESSION_COOKIE_SECURE\"] = False. Padrão seguro: app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE=\"Lax\").",
+        "Hardening do framework: aplicar o checklist de implantação do framework adotado e revisar os defaults antes de publicar."
       ],
-      "como_validar": ""
+      "como_validar": "Executar o checklist de implantação do framework — no Django, python manage.py check --deploy sem alertas. Avaliar os cabeçalhos de resposta com base nas recomendações do OWASP Secure Headers Project e testar a política de CORS rejeitando origem não autorizada. Confirmar que o Bandit (regras B201 e B501 a B506) não acusa configurações inseguras e que os cookies apresentam as flags. Verificar o capítulo de Configuração do OWASP ASVS 5.0."
     },
     "prioridade": "Alta"
   },
@@ -194,15 +191,13 @@
     "impacto": "Pode gerar falsa sensação de segurança, permitir incorporação de código incompleto em produção, causar bypass de controles e dificultar a identificação de falhas durante revisão superficial.",
     "forma_de_deteccao": "Heurísticas para TODO, FIXME, pass, placeholders, retornos constantes em funções de segurança e comentários indicando implementação futura; revisão apoiada de funções com nomes associados a validação, autenticação, autorização, criptografia e verificação.",
     "mitigacao": {
-      "o_que_verificar": "",
+      "o_que_verificar": "Revisar funções com nomes associados a controles de segurança (validação, autenticação, autorização, criptografia, verificação) em busca de comentários TODO/FIXME, retornos constantes (por exemplo, def is_authorized(): return True), placeholders e validações presentes apenas no cliente ou citadas somente em comentários, sem implementação executável.",
       "como_corrigir": [
-        "Não considerar placeholders ou comentários como controles implementados.",
-        "Substituir estruturas temporárias por verificações efetivas e testáveis.",
-        "Criar testes específicos para confirmar o funcionamento dos controles de segurança.",
-        "Revisar funções com nomes sensíveis para verificar se aplicam regras reais.",
-        "Bloquear integração de código com controles explicitamente pendentes ou simulados."
+        "Função de verificação como stub: substituir o retorno constante por uma verificação real e testável. Padrão inseguro: def is_authorized(user, recurso): return True (com TODO de implementação pendente). Padrão seguro: def is_authorized(user, recurso): return recurso.owner_id == user.id or user.has_role(\"admin\").",
+        "Validação apenas no cliente: replicar a validação no servidor, que é a fronteira de confiança. Padrão inseguro: validação feita apenas no JavaScript do formulário. Padrão seguro: if not re.fullmatch(r\"[^@]+@[^@]+\\.[^@]+\", email): raise ValueError(\"E-mail inválido\").",
+        "Bloqueio de pendências: não integrar código com controle explicitamente pendente e criar um teste que prove o comportamento do controle."
       ],
-      "como_validar": ""
+      "como_validar": "Para cada controle, criar um teste específico que comprove o comportamento esperado, garantindo que o caso negativo realmente falhe (acesso não autorizado deve ser bloqueado; senha inválida deve ser rejeitada). Confirmar a ausência de TODO/FIXME e de placeholders em funções de segurança no diff aprovado e que as heurísticas H003/H004 não acusam controles incompletos. Seguir as práticas de revisão (PW.7) e de teste de código (PW.8) do NIST SP 800-218 e o capítulo de Codificação Segura e Arquitetura do OWASP ASVS 5.0."
     },
     "prioridade": "Alta"
   }
