@@ -4,12 +4,17 @@ Oráculo: o guia técnico (knowledge_base.json) e os padrões que ele referencia
 (OWASP Cheat Sheet Series, OWASP ASVS, pip-audit). O módulo faz lookup puro: a
 recomendação reflete o guia sem gerar texto novo nem corrigir código (TCC §3.3.4).
 """
-from classify.classifier import classify_findings
+import pytest
+
+from classify.classifier import classify_findings, load_knowledge_base
 from recommend.recommender import (
     build_recommendation,
     generate_error_report,
     generate_report,
 )
+
+# IDs das categorias GIA do guia, lidos uma vez para parametrizar a cobertura
+_GIA_IDS = sorted(load_knowledge_base().keys())
 
 
 def test_gia001_recomendacao_tem_os_tres_campos(knowledge_base):
@@ -73,3 +78,18 @@ def test_generate_error_report_para_entrada_invalida():
     assert report["analysis_summary"]["status"] == "invalid"
     assert report["findings"] == []
     assert report["errors"]
+
+
+@pytest.mark.parametrize("gia_id", _GIA_IDS)
+def test_toda_gia_tem_recomendacao_completa(gia_id, knowledge_base):
+    """Cada categoria GIA do guia produz recomendação com todos os campos preenchidos.
+
+    Teste de regressão: impede que uma futura edição do knowledge_base.json deixe
+    o_que_verificar, como_corrigir ou como_validar vazios em qualquer GIA — estado
+    em que GIA-004 a GIA-007 estavam antes de serem completados.
+    """
+    rec = build_recommendation({"gia_id": gia_id, "requires_manual_review": False}, knowledge_base)
+    assert rec["impact"], f"{gia_id}: impact vazio"
+    assert rec["what_to_check"], f"{gia_id}: what_to_check vazio"
+    assert isinstance(rec["how_to_fix"], list) and rec["how_to_fix"], f"{gia_id}: how_to_fix vazio"
+    assert rec["how_to_validate"], f"{gia_id}: how_to_validate vazio"
