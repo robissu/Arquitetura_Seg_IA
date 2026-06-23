@@ -156,6 +156,7 @@ Arquitetura_Seg_IA/
 │   │   └── io_utils.py           # Funções auxiliares de leitura e escrita
 │   └── main.py                   # Ponto de entrada — pipeline completo
 │
+├── tests/                        # Suíte pytest + TRACEABILITY.md (rastreabilidade)
 ├── demo_pipeline.py              # Runner de demonstração (normalize → análise)
 ├── .venv/                        # Ambiente virtual Python (não versionado)
 ├── requirements.txt
@@ -221,7 +222,11 @@ pip install -r requirements.txt
 
 ### 1. Adicionar uma entrada de teste
 
-Crie ou edite um arquivo em `data/input/`, por exemplo `data/input/exemplo_02.txt`. O arquivo pode conter uma saída bruta de código gerado por IA, incluindo texto explicativo e cercas de markdown.
+Crie ou edite um arquivo em `data/input/` contendo uma saída bruta de código gerado por IA (com texto explicativo e cercas de markdown, se houver). O repositório já inclui exemplos:
+
+- `exemplo_01.txt` — código sintaticamente inválido (a análise é bloqueada);
+- `exemplo_02.txt` — API Flask vulnerável (GIA-001, 002, 003, 005, 007);
+- `exemplo_03.txt` — cliente de API com segredos embutidos e configuração insegura (GIA-003, 004, 006).
 
 ### 2. Executar o protótipo
 
@@ -241,12 +246,21 @@ O `main.py` localiza automaticamente as ferramentas do ambiente virtual, então 
 
 O protótipo imprime um resumo no terminal e grava o relatório completo em `data/output/<nome>_report.json`.
 
+### 4. (Opcional) Rodar a suíte de testes
+
+```bash
+pytest tests/
+```
+
+A suíte cobre cada módulo e o pipeline integrado; a matriz `tests/TRACEABILITY.md` liga cada teste a CWE, OWASP e referências.
+
 ---
 
 ## Próximos passos
 
-- criar suíte de testes automatizados com pytest cobrindo cada módulo;
-- ampliar a base de conhecimento (campos de verificação e validação dos GIA-004 a GIA-007).
+- integrar verificação de dependências (pip-audit) e secret scanning ao pipeline de CI;
+- ampliar o conjunto de exemplos de entrada e a cobertura de regras Bandit mapeadas;
+- como trabalho futuro, generalizar a arquitetura para além de código Python.
 
 ---
 

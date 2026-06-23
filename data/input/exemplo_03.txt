@@ -1,0 +1,33 @@
+Claro! Aqui está um cliente em Python para integrar com a API de pedidos:
+
+```python
+import requests
+
+API_TOKEN = "TOKEN_FICTICIO_DE_EXEMPLO_0000"
+DB_PASSWORD = "admin123"
+
+BASE_URL = "https://api.exemplo.com"
+
+
+def buscar_pedidos(cliente_id):
+    headers = {"Authorization": "Bearer " + API_TOKEN}
+    resposta = requests.get(
+        BASE_URL + "/pedidos/" + str(cliente_id),
+        headers=headers,
+        verify=False,
+        timeout=10,
+    )
+    return resposta.json()
+
+
+def enviar_relatorio(payload):
+    return requests.post(
+        BASE_URL + "/relatorios", json=payload, verify=False, timeout=10
+    )
+
+
+def conectar_banco():
+    return criar_conexao(host="localhost", usuario="root", senha=DB_PASSWORD)
+```
+
+Pronto! Lembre de rodar `pip install requests` antes de usar.
