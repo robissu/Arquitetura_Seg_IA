@@ -1,6 +1,8 @@
 import ast
+import math
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 # ── H003 — nomes de funções sensíveis ──────────────────────────────────────────
@@ -31,6 +33,20 @@ _SENSITIVE_HTTP_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 
 # ── H008 — módulos da stdlib (Python ≥ 3.10) ──────────────────────────────────
 _STDLIB = getattr(sys, "stdlib_module_names", frozenset())
+
+# ── H009 — formatos de segredos reconhecíveis pelo valor (não pelo nome) ──────
+_SECRET_PATTERNS = (
+    r"sk_live_[0-9A-Za-z]{8,}", r"sk_test_[0-9A-Za-z]{8,}",
+    r"pk_live_[0-9A-Za-z]{8,}", r"rk_live_[0-9A-Za-z]{8,}",
+    r"AKIA[0-9A-Z]{16}",                                  # AWS access key id
+    r"ghp_[0-9A-Za-z]{36}", r"gho_[0-9A-Za-z]{36}",       # GitHub token
+    r"github_pat_[0-9A-Za-z_]{22,}",
+    r"AIza[0-9A-Za-z\-_]{35}",                            # Google API key
+    r"xox[baprs]-[0-9A-Za-z-]{10,}",                      # Slack token
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----",               # chave privada PEM
+    r"eyJ[0-9A-Za-z_-]{8,}\.[0-9A-Za-z_-]{8,}\.[0-9A-Za-z_-]{8,}",  # JWT
+)
+_SECRET_REGEX = re.compile("|".join(_SECRET_PATTERNS))
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -404,12 +420,68 @@ def _is_third_party(pkg: str, req_packages: set[str]) -> bool:
     return pkg_lower.replace("-", "_") not in req_packages
 
 
+# ── H009 ──────────────────────────────────────────────────────────────────────
+
+
+def _shannon_entropy(s: str) -> float:
+    """Entropia de Shannon (bits por caractere) de uma string."""
+    if not s:
+        return 0.0
+    n = len(s)
+    return -sum((c / n) * math.log2(c / n) for c in Counter(s).values())
+
+
+def _h009(tree: ast.AST, lines: list[str]) -> list[dict]:
+    """H009: Segredo embutido detectado pelo VALOR (formato/entropia), não pelo nome.
+
+    Complementa o Bandit B105/B106/B107, que se baseia no nome do identificador e
+    perde segredos atribuídos a variáveis com nomes neutros (ex.: API_KEY). Detecta
+    formatos conhecidos de chaves/tokens e strings longas de alta entropia.
+
+    Fonte: CWE-798 (Use of Hard-coded Credentials); limitação do B105 demonstrada na
+    experimentação (Seção 3.3.2.1). Categoria do guia: GIA-004.
+    """
+    findings = []
+    seen: set[int] = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            continue
+        val = node.value.strip()
+        lineno = getattr(node, "lineno", 0)
+        if lineno in seen or not val:
+            continue
+        if _SECRET_REGEX.search(val):
+            seen.add(lineno)
+            findings.append(_finding(
+                "H009", lineno, "HIGH", "HIGH",
+                "Segredo embutido no código — valor com formato de chave/token "
+                "reconhecido (independente do nome da variável).",
+                _ctx(lines, lineno),
+            ))
+        elif (
+            len(val) >= 24
+            and " " not in val
+            and "://" not in val
+            and re.search(r"[A-Za-z]", val)
+            and re.search(r"[0-9]", val)
+            and _shannon_entropy(val) >= 4.2
+        ):
+            seen.add(lineno)
+            findings.append(_finding(
+                "H009", lineno, "MEDIUM", "LOW",
+                "String longa de alta entropia embutida no código — "
+                "possível segredo/credencial.",
+                _ctx(lines, lineno),
+            ))
+    return findings
+
+
 # ── ponto de entrada público ───────────────────────────────────────────────────
 
 
 def run_heuristics(code: str, requirements_path: str | None = None) -> list[dict]:
     """
-    Executa todas as heurísticas H001-H008 sobre o código Python normalizado.
+    Executa todas as heurísticas H001-H009 sobre o código Python normalizado.
 
     requirements_path: caminho para requirements.txt (usado em H008).
     Retorna lista de achados no formato intermediário unificado.
@@ -429,5 +501,6 @@ def run_heuristics(code: str, requirements_path: str | None = None) -> list[dict
     findings.extend(_h006(tree, lines))
     findings.extend(_h007(tree, lines))
     findings.extend(_h008(tree, lines, requirements_path))
+    findings.extend(_h009(tree, lines))
 
     return findings

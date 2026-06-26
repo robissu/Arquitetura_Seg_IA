@@ -78,6 +78,7 @@ Camada 2 — Heurísticas complementares (`heuristics.py`), via travessia de AST
 | H006 | Rota Flask/Django com método sensível sem decorator de autenticação |
 | H007 | Rota com parâmetro ID sem checagem de propriedade do recurso (IDOR) |
 | H008 | Import de pacote ausente em `requirements.txt` |
+| H009 | Segredo embutido detectado pelo formato do valor (padrões como `sk_live_`, `AKIA`) |
 
 ### Módulo 3 — Classificação (`src/classify/classifier.py`)
 
@@ -147,7 +148,7 @@ Arquitetura_Seg_IA/
 │   │   └── normalize.py          # Módulo 1 — coleta e normalização
 │   ├── analyze/
 │   │   ├── sast.py               # Módulo 2 — wrapper Bandit
-│   │   └── heuristics.py         # Módulo 2 — heurísticas H001-H008
+│   │   └── heuristics.py         # Módulo 2 — heurísticas H001-H009
 │   ├── classify/
 │   │   └── classifier.py         # Módulo 3 — classificação (achado → GIA)
 │   ├── recommend/

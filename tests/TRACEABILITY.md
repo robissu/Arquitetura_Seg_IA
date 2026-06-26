@@ -21,6 +21,7 @@ do TCC.
 | H006 | `test_heuristics::test_h006_rota_sensivel_sem_autenticacao` | CWE-306 | A01 / A07 | GIA-002 | MITRE CWE; Dora et al. (2025) |
 | H007 | `test_heuristics::test_h007_rota_com_id_sem_checar_dono` | CWE-639 | A01 – Broken Access Control | GIA-002 | MITRE CWE; Zhao et al. (2025) |
 | H008 | `test_heuristics::test_h008_import_ausente_em_requirements` | CWE-1104 / CWE-829 | A06 – Vulnerable/Outdated Components | GIA-003 | Spracklen et al. (2025) |
+| H009 | `test_heuristics::test_h009_segredo_por_formato_que_b105_perde` | CWE-798 | A02 – Cryptographic Failures | GIA-004 | MITRE CWE; limitação do B105 (§3.3.2.1) |
 
 ## 2. Classificação e recomendação → fontes
 

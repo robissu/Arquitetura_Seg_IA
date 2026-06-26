@@ -1,4 +1,4 @@
-"""Testes do Módulo 2 — camada de heurísticas complementares (H001-H008).
+"""Testes do Módulo 2 — camada de heurísticas complementares (H001-H009).
 
 Oráculo: catálogo CWE (MITRE, https://cwe.mitre.org/) para o padrão estrutural
 detectado, complementado pelas evidências de literatura que motivam cada
@@ -108,6 +108,24 @@ def test_h008_parse_requirements_em_utf16(tmp_path):
     req.write_text("flask==3.0.0\n", encoding="utf-16")
     findings = run_heuristics("import flask\n", requirements_path=str(req))
     assert "H008" not in _rule_ids(findings)
+
+
+def test_h009_segredo_por_formato_que_b105_perde():
+    """Segredo com formato reconhecível em variável de nome neutro → H009.
+
+    O Bandit (B105) baseia-se no nome do identificador e perde casos onde a
+    variável tem nome neutro (Seção 3.3.2.1); o H009 detecta pelo valor.
+    Usa placeholder AWS da documentação oficial: AKIAIOSFODNN7EXAMPLE.
+    Fonte: CWE-798 (Use of Hard-coded Credentials).
+    """
+    code = 'CHAVE = "AKIAIOSFODNN7EXAMPLE"\n'
+    assert "H009" in _rule_ids(run_heuristics(code))
+
+
+def test_h009_nao_marca_string_comum():
+    """Strings comuns (curtas, URLs) não disparam H009 — guarda de precisão."""
+    code = 'msg = "ola mundo"\nurl = "https://exemplo.com/pagina/inicial"\n'
+    assert "H009" not in _rule_ids(run_heuristics(code))
 
 
 def test_codigo_limpo_sem_heuristicas():

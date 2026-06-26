@@ -59,6 +59,7 @@ HEURISTIC_TO_GIA = {
     "H005": "GIA-001",
     "H006": "GIA-002", "H007": "GIA-002",
     "H008": "GIA-003",
+    "H009": "GIA-004",
 }
 
 _DEFAULT_KB_PATH = Path(__file__).resolve().parents[2] / "data" / "knowledge_base.json"
